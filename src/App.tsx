@@ -31,6 +31,7 @@ import { FireworksCanvas } from './components/FireworksCanvas';
 import { MagicalRangoli } from './components/MagicalRangoli';
 import { SurpriseGiftBox } from './components/SurpriseGiftBox';
 import { RoyalPeacockCrest } from './components/RoyalPeacockCrest';
+import { Analytics } from '@vercel/analytics/react';
 
 async function copyTextWithFallback(text: string): Promise<boolean> {
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
@@ -577,7 +578,7 @@ export default function App() {
               <p className="leading-[1.95]">
                 दीपावली के इस पावन पर्व पर,
                 <br />
-                आपके जीवन में खुशियों के दीप जलें,
+                आपके ���ीवन में खुशियों के दीप जलें,
                 <br />
                 सुख, शांति और समृद्धि का आगमन हो,
                 <br />
@@ -695,7 +696,7 @@ export default function App() {
             <div className="max-w-2xl mx-auto space-y-6">
               <div className="space-y-2">
                 <h3 className="text-xl sm:text-2xl font-hindi-display text-amber-100">
-                  अपने प्रियजनों को यह 3D शुभकामना भेजें
+                  अपने प���रियजनों को यह 3D शुभकाम���ा भेजें
                 </h3>
                 <p className="text-xs sm:text-sm text-amber-200/80">
                   नीचे दिए गए बटन से WhatsApp पर साझा करें या अपना नाम जोड़कर नया व्यक्तिगत लिंक बनाएँ:
@@ -841,6 +842,7 @@ export default function App() {
           सप्रेम शुभकामनाओं सहित — आपका अपना, <span className="text-amber-200 font-medium">{senderName}</span>
         </p>
       </footer>
+      <Analytics />
     </div>
   );
 }
