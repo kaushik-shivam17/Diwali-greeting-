@@ -6,6 +6,7 @@ import {
   buildShareableUrl,
   buildWhatsAppShareUrl,
   computeRangoliSymmetryPoints,
+  calculateDiwaliCountdown,
   DEFAULT_SENDER_NAME,
 } from './greetingLogic';
 
@@ -94,3 +95,26 @@ test('computeRangoliSymmetryPoints calculates accurate circular symmetry points'
   assert.equal(pts[2].x, 0);
   assert.equal(pts[2].y, 100);
 });
+
+test('calculateDiwaliCountdown computes remaining days, hours, minutes, and seconds until next Diwali', () => {
+  const nov1_2026 = new Date(2026, 10, 1, 12, 0, 0, 0); // Nov 1, 2026 12:00 PM
+  const countdown = calculateDiwaliCountdown(nov1_2026);
+  assert.equal(countdown.isDiwaliToday, false);
+  assert.equal(countdown.targetYear, 2026);
+  assert.equal(countdown.days, 6);
+  assert.equal(countdown.hours, 12);
+  assert.equal(countdown.minutes, 0);
+  assert.equal(countdown.totalDays, 7);
+  assert.ok(countdown.summaryText.includes('7 days until Diwali'));
+
+  const onDiwali2026 = new Date(2026, 10, 8, 18, 30, 0, 0); // Nov 8, 2026
+  const todayResult = calculateDiwaliCountdown(onDiwali2026);
+  assert.equal(todayResult.isDiwaliToday, true);
+  assert.equal(todayResult.days, 0);
+
+  const afterDiwali2026 = new Date(2026, 10, 10, 10, 0, 0, 0); // Nov 10, 2026 -> rolls over to Oct 29, 2027
+  const nextYearResult = calculateDiwaliCountdown(afterDiwali2026);
+  assert.equal(nextYearResult.targetYear, 2027);
+  assert.ok(nextYearResult.totalDays > 340);
+});
+

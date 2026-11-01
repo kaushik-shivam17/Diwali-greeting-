@@ -23,6 +23,8 @@ import {
   parseSenderFromQuery,
   buildShareableUrl,
   buildWhatsAppShareUrl,
+  calculateDiwaliCountdown,
+  DiwaliCountdown,
   DEFAULT_SENDER_NAME,
 } from './utils/greetingLogic';
 import { soundEngine } from './utils/soundEngine';
@@ -72,6 +74,20 @@ export default function App() {
     !initialQuery.senderName && !initialQuery.autostart
   );
 
+  // Live "Days until Diwali" countdown calculated using JavaScript's Date object
+  const [diwaliCountdown, setDiwaliCountdown] = useState<DiwaliCountdown>(() =>
+    calculateDiwaliCountdown(new Date())
+  );
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      setDiwaliCountdown(calculateDiwaliCountdown(new Date()));
+    };
+    updateCountdown();
+    const timerId = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timerId);
+  }, []);
+
   // Intro Modal Personalization Form State
   const [nameInput, setNameInput] = useState<string>(
     initialQuery.senderName || ''
@@ -104,11 +120,16 @@ export default function App() {
   const heroGreetingRef = useRef<HTMLDivElement | null>(null);
   const wishesSectionRef = useRef<HTMLElement | null>(null);
 
+  const pendingFooterValidation = validateSenderName(footerNameInput);
+  const activeShareSenderName = pendingFooterValidation.isValid
+    ? pendingFooterValidation.sanitizedName
+    : senderName;
+
   const currentShareUrl = buildShareableUrl(
     typeof window !== 'undefined' ? window.location.href : 'https://diwali.example.com/',
-    senderName
+    activeShareSenderName
   );
-  const whatsappShareUrl = buildWhatsAppShareUrl(senderName, currentShareUrl);
+  const whatsappShareUrl = buildWhatsAppShareUrl(activeShareSenderName, currentShareUrl);
 
   // Sync URL query parameter safely when senderName is personalized
   const updateUrlQueryParam = (cleanName: string) => {
@@ -186,8 +207,16 @@ export default function App() {
     setFooterNameInput('');
     applyNewSenderName(result.sanitizedName);
     setFooterSuccess(
-      `अब यह शुभकामना संदेश "${result.sanitizedName}" के नाम से तैयार है! ऊपर दिए गए बटन से साझा करें।`
+      `अब यह शुभकामना संदेश "${result.sanitizedName}" के नाम से तैयार है! नीचे दिए गए बटन से साझा करें।`
     );
+  };
+
+  const commitPendingFooterNameIfValid = () => {
+    if (pendingFooterValidation.isValid) {
+      setFooterError(null);
+      setFooterNameInput('');
+      applyNewSenderName(pendingFooterValidation.sanitizedName);
+    }
   };
 
   const handleToggleMusic = () => {
@@ -201,12 +230,13 @@ export default function App() {
   };
 
   const handleCopyShareLink = async () => {
+    commitPendingFooterNameIfValid();
     const ok = await copyTextWithFallback(currentShareUrl);
     setCopiedLink(true);
     setShareFeedback(
       ok
         ? 'आपका व्यक्तिगत शुभकामना लिंक कॉपी हो गया है!'
-        : 'नीचे दिए गए लिंक को कॉपी करके साझा करें।'
+        : 'शुभकामना लिंक कॉपी करने के लिए तैयार है।'
     );
     soundEngine.playTempleBell(1174.66, 1.2, 0.12);
     window.setTimeout(() => {
@@ -215,12 +245,13 @@ export default function App() {
   };
 
   const handleNativeShare = async () => {
+    commitPendingFooterNameIfValid();
     soundEngine.playTempleBell(1046.5, 1.2, 0.12);
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: `॥ शुभ दीपावली ॥ — ${senderName} की ओर से शुभकामनाएँ`,
-          text: `${senderName} ने आपके और आपके परिवार के लिए विशेष 3D दीपावली शुभकामना संदेश भेजा है! ✨`,
+          title: `॥ शुभ दीपावली ॥ — ${activeShareSenderName} की ओर से शुभकामनाएँ`,
+          text: `${activeShareSenderName} ने आपके और आपके परिवार के लिए विशेष 3D दीपावली शुभकामना संदेश भेजा है! ✨`,
           url: currentShareUrl,
         });
         setShareFeedback('शुभकामना संदेश सफलतापूर्वक साझा किया गया!');
@@ -252,17 +283,44 @@ export default function App() {
       className="min-h-screen bg-[#07030d] text-[#fff8eb] flex flex-col relative selection:bg-amber-500/30"
     >
       {/* TOP BAR CONTRACT: Strictly 3 zones separated by gap-8 */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-4 sm:gap-8 px-4 sm:px-8 py-3 bg-[#090314]/95 border-b border-amber-500/20">
-        {/* Zone 1: Single text element Brand Wordmark */}
-        <a
-          href="#palace-stage"
-          onClick={() => {
-            if (showIntroModal) enterPalaceDirectly();
-          }}
-          className="text-base sm:text-xl font-hindi-display text-gold-metallic whitespace-nowrap shrink-0"
-        >
-          ॥ शुभ दीपावली ॥
-        </a>
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 sm:gap-8 px-4 sm:px-8 py-2.5 sm:py-3 bg-[#090314]/95 border-b border-amber-500/20">
+        {/* Zone 1: Brand Wordmark + Subtle 'Days until Diwali' Countdown */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3.5 shrink-0 min-w-0">
+          <a
+            href="#palace-stage"
+            onClick={() => {
+              if (showIntroModal) enterPalaceDirectly();
+            }}
+            className="text-base sm:text-xl font-hindi-display text-gold-metallic whitespace-nowrap shrink-0"
+          >
+            ॥ शुभ दीपावली ॥
+          </a>
+
+          <div
+            data-testid="diwali-countdown"
+            title={`Next Diwali: ${diwaliCountdown.targetDateFormatted}`}
+            aria-live="polite"
+            className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-medium text-amber-200/80 sm:px-2.5 sm:py-1 sm:rounded-md sm:bg-[#130729] sm:border sm:border-amber-400/25 tabular-nums whitespace-nowrap shrink-0"
+          >
+            {diwaliCountdown.isDiwaliToday ? (
+              <span className="text-amber-300 font-semibold">
+                Happy Diwali Today! · आज शुभ दीपावली
+              </span>
+            ) : (
+              <>
+                <span className="text-amber-300/90 font-semibold">
+                  {diwaliCountdown.totalDays}{' '}
+                  {diwaliCountdown.totalDays === 1 ? 'Day' : 'Days'} until Diwali
+                </span>
+                <span className="hidden lg:inline text-amber-200/60">
+                  · {diwaliCountdown.days}d {String(diwaliCountdown.hours).padStart(2, '0')}h{' '}
+                  {String(diwaliCountdown.minutes).padStart(2, '0')}m{' '}
+                  {String(diwaliCountdown.seconds).padStart(2, '0')}s
+                </span>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Zone 2: 5 concise single-line navigation links */}
         <nav
@@ -691,89 +749,22 @@ export default function App() {
 
             <div className="h-px w-full bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
 
-            {/* Share Buttons & Personalized URL Generator */}
+            {/* Step 1: First Ask for Sender Name Section, Step 2: Sending Options (No raw link shown) */}
             <div className="max-w-2xl mx-auto space-y-6">
-              <div className="space-y-2">
-                <h3 className="text-xl sm:text-2xl font-hindi-display text-amber-100">
-                  अपने प्रियजनों को यह 3D शुभकामना भेजें
-                </h3>
-                <p className="text-xs sm:text-sm text-amber-200/80">
-                  नीचे दिए गए बटन से WhatsApp पर साझा करें या अपना नाम जोड़कर नया व्यक्तिगत लिंक बनाएँ:
-                </p>
-              </div>
-
-              {/* Primary Share Action Row */}
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <a
-                  href={whatsappShareUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid="whatsapp-share-link"
-                  onClick={() => soundEngine.playTempleBell(1046.5, 1.2, 0.12)}
-                  className="min-h-[44px] inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm sm:text-base font-bold bg-[#16a34a] hover:bg-[#15803d] text-white transition-all shadow-lg whitespace-nowrap shrink-0"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>WhatsApp पर साझा करें</span>
-                </a>
-
-                <button
-                  type="button"
-                  data-testid="copy-share-link-btn"
-                  onClick={handleCopyShareLink}
-                  className="min-h-[44px] inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-amber-400 to-orange-500 text-[#090314] hover:brightness-110 transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-md"
-                >
-                  {copiedLink ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>लिंक कॉपी हो गया!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      <span>लिंक कॉपी करें</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleNativeShare}
-                  className="min-h-[44px] inline-flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border border-amber-400/40 bg-[#16082e] text-amber-100 hover:border-amber-300 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                >
-                  <Share2 className="w-4 h-4 text-amber-300" />
-                  <span>अन्य माध्यम से साझा करें</span>
-                </button>
-              </div>
-
-              {/* Shareable URL Preview Box */}
-              <div className="rounded-xl p-3.5 bg-[#0a0316] border border-amber-500/25 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
-                <div className="w-full overflow-hidden">
-                  <p className="text-[11px] text-amber-300/75">
-                    आपका व्यक्तिगत शेयर लिंक (?from=...):
-                  </p>
-                  <p
-                    data-testid="shareable-url-preview"
-                    className="text-xs sm:text-sm font-mono text-amber-100 truncate"
-                  >
-                    {currentShareUrl}
+              {/* STEP 1: Ask for Name Section First */}
+              <div
+                data-testid="footer-name-section"
+                className="rounded-2xl p-5 sm:p-6 bg-[#120626]/90 border border-amber-400/25 space-y-4"
+              >
+                <div className="space-y-1">
+                  <h3 className="text-xl sm:text-2xl font-hindi-display text-amber-100">
+                    अपने नाम से यह 3D शुभकामना आगे भेजें
+                  </h3>
+                  <p className="text-xs sm:text-sm text-amber-200/80">
+                    अन्य लोगों को भेजने से पहले नीचे अपना नाम लिखें:
                   </p>
                 </div>
-                {shareFeedback && (
-                  <span
-                    role="status"
-                    data-testid="share-feedback-status"
-                    className="text-xs text-emerald-300 font-medium whitespace-nowrap shrink-0"
-                  >
-                    {shareFeedback}
-                  </span>
-                )}
-              </div>
 
-              {/* Inline "Create Your Own Greeting" Customizer for Recipients */}
-              <div className="pt-4 rounded-2xl p-5 sm:p-6 bg-[#120626]/90 border border-amber-400/25 space-y-4">
-                <p className="text-sm sm:text-base font-medium text-amber-100">
-                  क्या आप अपने नाम से यह शुभकामना संदेश आगे भेजना चाहते हैं?
-                </p>
                 <form
                   onSubmit={handleFooterPersonalizeSubmit}
                   noValidate
@@ -802,7 +793,7 @@ export default function App() {
                       data-testid="footer-submit-btn"
                       className="min-h-[44px] px-6 py-3 rounded-xl text-sm sm:text-base font-bold bg-gradient-to-r from-amber-300 via-amber-500 to-orange-500 text-[#090314] hover:brightness-110 transition-all cursor-pointer whitespace-nowrap shrink-0"
                     >
-                      शुभकामनाएँ भेजें ✨
+                      नाम जोड़ें ✨
                     </button>
                   </div>
 
@@ -826,6 +817,71 @@ export default function App() {
                     </p>
                   )}
                 </form>
+              </div>
+
+              {/* STEP 2: Sending Options (WhatsApp, Copy Link, Native Share) */}
+              <div
+                data-testid="footer-sending-section"
+                className="space-y-3 pt-1"
+              >
+                <p className="text-xs sm:text-sm text-amber-200/85 font-medium">
+                  अब अपने प्रियजनों को शुभकामना संदेश भेजें ({activeShareSenderName} के नाम से):
+                </p>
+
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <a
+                    href={whatsappShareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="whatsapp-share-link"
+                    onClick={() => {
+                      commitPendingFooterNameIfValid();
+                      soundEngine.playTempleBell(1046.5, 1.2, 0.12);
+                    }}
+                    className="min-h-[44px] inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm sm:text-base font-bold bg-[#16a34a] hover:bg-[#15803d] text-white transition-all shadow-lg whitespace-nowrap shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>WhatsApp पर भेजें</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    data-testid="copy-share-link-btn"
+                    onClick={handleCopyShareLink}
+                    className="min-h-[44px] inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-amber-400 to-orange-500 text-[#090314] hover:brightness-110 transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-md"
+                  >
+                    {copiedLink ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>लिंक कॉपी हो गया!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>लिंक कॉपी करें</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleNativeShare}
+                    className="min-h-[44px] inline-flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border border-amber-400/40 bg-[#16082e] text-amber-100 hover:border-amber-300 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <Share2 className="w-4 h-4 text-amber-300" />
+                    <span>अन्य माध्यम से भेजें</span>
+                  </button>
+                </div>
+
+                {shareFeedback && (
+                  <p
+                    role="status"
+                    data-testid="share-feedback-status"
+                    className="text-xs sm:text-sm text-emerald-300 font-medium text-center pt-1"
+                  >
+                    {shareFeedback}
+                  </p>
+                )}
               </div>
             </div>
           </div>

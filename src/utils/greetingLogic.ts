@@ -181,3 +181,127 @@ export function computeRangoliSymmetryPoints(
   }
   return points;
 }
+
+export interface DiwaliCountdown {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  totalDays: number;
+  isDiwaliToday: boolean;
+  targetYear: number;
+  targetDateFormatted: string;
+  summaryText: string;
+}
+
+const UPCOMING_DIWALI_DATES: ReadonlyArray<{
+  year: number;
+  monthIndex: number; // 0-indexed (9 = October, 10 = November)
+  day: number;
+}> = [
+  { year: 2025, monthIndex: 9, day: 20 },
+  { year: 2026, monthIndex: 10, day: 8 },
+  { year: 2027, monthIndex: 9, day: 29 },
+  { year: 2028, monthIndex: 9, day: 17 },
+  { year: 2029, monthIndex: 10, day: 5 },
+  { year: 2030, monthIndex: 9, day: 26 },
+  { year: 2031, monthIndex: 10, day: 14 },
+  { year: 2032, monthIndex: 10, day: 2 },
+  { year: 2033, monthIndex: 9, day: 22 },
+  { year: 2034, monthIndex: 10, day: 10 },
+  { year: 2035, monthIndex: 9, day: 30 },
+];
+
+/**
+ * Calculates the time remaining until the next Diwali using JavaScript's Date object.
+ */
+export function calculateDiwaliCountdown(now: Date = new Date()): DiwaliCountdown {
+  const safeNow =
+    now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+
+  const currentYear = safeNow.getFullYear();
+  const currentMonth = safeNow.getMonth();
+  const currentDay = safeNow.getDate();
+
+  // Check if today is Diwali
+  const todayMatch = UPCOMING_DIWALI_DATES.find(
+    (d) =>
+      d.year === currentYear &&
+      d.monthIndex === currentMonth &&
+      d.day === currentDay
+  );
+
+  if (todayMatch) {
+    const targetDate = new Date(
+      todayMatch.year,
+      todayMatch.monthIndex,
+      todayMatch.day,
+      0,
+      0,
+      0,
+      0
+    );
+    return {
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      totalDays: 0,
+      isDiwaliToday: true,
+      targetYear: todayMatch.year,
+      targetDateFormatted: targetDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      summaryText: 'Happy Diwali Today! · आज शुभ दीपावली है',
+    };
+  }
+
+  // Find next upcoming Diwali date
+  let targetDate: Date | null = null;
+  for (const entry of UPCOMING_DIWALI_DATES) {
+    const candidate = new Date(entry.year, entry.monthIndex, entry.day, 0, 0, 0, 0);
+    if (candidate.getTime() > safeNow.getTime()) {
+      targetDate = candidate;
+      break;
+    }
+  }
+
+  // Fallback for dates beyond our lookup table
+  if (!targetDate) {
+    const fallbackThisYear = new Date(currentYear, 10, 8, 0, 0, 0, 0);
+    targetDate =
+      fallbackThisYear.getTime() > safeNow.getTime()
+        ? fallbackThisYear
+        : new Date(currentYear + 1, 10, 8, 0, 0, 0, 0);
+  }
+
+  const diffMs = Math.max(0, targetDate.getTime() - safeNow.getTime());
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+  const seconds = Math.floor((diffMs / 1000) % 60);
+  const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+  const targetDateFormatted = targetDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  const dayLabel = totalDays === 1 ? '1 day until Diwali' : `${totalDays} days until Diwali`;
+
+  return {
+    days,
+    hours,
+    minutes,
+    seconds,
+    totalDays,
+    isDiwaliToday: false,
+    targetYear: targetDate.getFullYear(),
+    targetDateFormatted,
+    summaryText: `${dayLabel} (${days}d ${hours}h ${minutes}m)`,
+  };
+}
+
