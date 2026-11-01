@@ -1,0 +1,6 @@
+{
+  "name": "Shubh Deepavali — Grand 3D Diwali Wishes",
+  "description": "An immersive 3D Indian Palace Diwali greeting experience with personalized Hindi wishes, interactive fireworks, animated rangoli, and festive music.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
